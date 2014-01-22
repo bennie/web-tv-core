@@ -165,10 +165,17 @@ if ( $cgi->path_info eq '/dashboard' ) {
     rtmp_url      => 'The RTMP URL the player is configured to read from.'
   );
 
-  for my $param ( sort keys %params ) {
+  my @order = qw/chat_title chat_channel chat_height player_width player_height player_url rtmp_url/;
+  
+  print $cgi->start_form(-action=>'/index.cgi/params'), $cgi->start_table;
+  
+  for my $param ( @order ) {
     my $value = get_param($username,$param);
-    print $cgi->p($cgi->b($param),$value);
+    
+    print $cgi->Tr($cgi->td($cgi->b($param)),$cgi->td($cgi->textfield(-size=>60,-name=>$param,-value=>$value)),$cgi->td($params{$param}));
   }
+
+  print $cgi->end_table, $cgi->end_form;
 
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
