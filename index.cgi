@@ -30,13 +30,23 @@ if ( $check < 1 and $cgi->path_info and $cgi->path_info ne '/login' ) {
   exit 0;
 }
 
-print $cgi->header, $cgi->start_html('TV Sites');
-print '<body bgcolor="#FFFFFF">';
+print $cgi->header, $cgi->start_html( -title=>'TV Sites', -style=>{'src'=>'/resources/sample.css'}, -head => '<!--[if lt IE 7]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE7.js" type="text/javascript"></script><![endif]-->'."\n".'<!--[if lt IE 8]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE8.js" type="text/javascript"></script><![endif]-->' );
+print '<body bgcolor="#FFFFFF">
 
+<div id="doc3" class="yui-t1">
+   <div id="hd" role="banner"><h1>TV Sites</h1></div>
+   <div id="bd" role="main">
+	<div id="yui-main">
+	<div class="yui-b"><div class="yui-g">
+
+';
+	
 if ( $cgi->path_info eq '/login' ) {
   print $cgi->p("Bad login.") if $username or $password;
-  print $cgi->start_form( -action=> '/index.cgi/dashboard' ), $cgi->textfield('username'),
-        $cgi->password_field('password'), $cgi->submit, $cgi->end_form;
+  print $cgi->start_form( -action=> '/index.cgi/dashboard' ), 
+          $cgi->b('User: '), $cgi->textfield('username'), $cgi->br,
+          $cgi->b('Pass: '), $cgi->password_field('password'), $cgi->br,
+          $cgi->submit, $cgi->end_form;
 
 } elsif ( $cgi->path_info eq '/dashboard' ) {
   print "Welcome $username";  
@@ -168,18 +178,33 @@ if ( $cgi->path_info eq '/login' ) {
   
   
 } else {
-  print '[ <a href="/index.cgi/login">Admin</a> ]';
   print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} &list_sites() );
 
 }
 
 ### Footer
 
+print '
+</div>
+</div>
+	</div>
+	<div class="yui-b">
+      '.( $username ? "[ $username ]" : '[ <a href="/index.cgi/login">LOGIN</a> ]').'
+      <div id="side"><p>&nbsp;</p></div>
+	</div>
+	
+	</div>
+   <div id="ft" role="contentinfo">';
+   
 print $cgi->p('Path:',$cgi->path_info);
 for my $param ( $cgi->param ) {
   #print $cgi->p($param,$cgi->param($param));
-}
-print '</body></html>';
+}   
+   
+print '</div>
+</div>
+
+</body></html>';
 
 ### Subs
 
@@ -213,7 +238,8 @@ sub get_page {
   my $page = shift @_;
   my $sth = $dbh->prepare('select page from page where username=? and pagename=?');
   my $ret = $sth->execute($user,$page);
-  return $sth->fetchrow_arrayref->[0];
+  my $ref = $sth->fetchrow_arrayref;
+  return $ref ? $ref->[0] : undef;
 }
 
 sub get_param {
@@ -221,7 +247,8 @@ sub get_param {
   my $param = shift @_;
   my $sth = $dbh->prepare('select value from params where username=? and param=?');
   my $ret = $sth->execute($user,$param);
-  return $sth->fetchrow_arrayref->[0];
+  my $ref = $sth->fetchrow_arrayref;
+  return $ref ? $ref->[0] : undef;
 }
 
 sub list_sites {
@@ -265,11 +292,26 @@ sub set_param {
 ### Big things
 
 sub index_header {
-  #set_param($username,'chat_title',"Chat");
-  #set_param($username,'chat_channel',"pumapaw");
-
   my $chat_title   = get_param($username,'chat_title');
   my $chat_channel = get_param($username,'chat_channel');
+  my $chat_height  = get_param($username,'chat_height');
+
+  # Set defaults for missing params
+
+  unless ( $chat_title ) {
+    $chat_title = 'Chat';
+    set_param($username,'chat_title',$chat_title);
+  }
+
+  unless ( $chat_channel ) {
+    $chat_channel = $username;
+    set_param($username,'chat_channel',$chat_channel);
+  }
+
+  unless ( $chat_height ) {
+    $chat_height = 430;
+    set_param($username,'chat_height',$chat_height);
+  }
 
   return '<?php
 
@@ -284,7 +326,7 @@ $params["channels"] = array("'.$chat_channel.'"); // Default channel to join
 $params["frozen_channels"] = array("'.$chat_channel.'"); // Only one channel allowed
 
 $params["theme"] = "wolf"; // Custom style
-$params["height"] = "430px"; // Height. No width setting sadly
+$params["height"] = "'.$chat_height.'px"; // Height. No width setting sadly
 $params["displaytabclosebutton"] = false; // Get rid of the tab, wish this worked
 $params["displaytabimage"] = false; // Get rid of the tab, wish this worked
 $params["display_pfc_logo"] = false; // Remove the logo for phofreechat.net
@@ -310,14 +352,37 @@ $chat = new phpFreeChat($params);
 }
 
 sub screen {
-  #set_param($username,'rtmp_url',"rtmp://tv.pumapaw.com/oflaDemo/cougrtv");
-  set_param($username,'player_url',"http://tv.pumapaw.com/uploads/traci.jpg");
-
   my $playerid = 'player_'.$username;
 
-  my $player_url = get_param($username,'player_url');
-  my $rtmp_url   = get_param($username,'rtmp_url');
-  
+  my $player_height = get_param($username,'player_height');
+  my $player_width  = get_param($username,'player_width');
+  my $player_url    = get_param($username,'player_url');
+  my $rtmp_url      = get_param($username,'rtmp_url');
+
+  # Set defaults for missing params
+
+  unless ( $player_height ) {
+    $player_height = 360;
+    set_param($username,'player_height',$player_height);
+  }
+
+  unless ( $player_width ) {
+    $player_width = 640;
+    set_param($username,'player_width',$player_width);
+  }
+
+  unless ( $player_url ) {
+    $player_url = 'http://tv.macrophile.com/resources/default-images/focus.jpg';
+    set_param($username,'player_url',$player_url);
+  }
+
+  unless ( $rtmp_url ) {
+    $rtmp_url = 'rtmp://tv.pumapaw.com/oflaDemo/'.$username.'tv';
+    set_param($username,'rtmp_url',$rtmp_url);
+  }
+
+  # Return the screen layout  
+
   return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
 <div id="'.$playerid.'">
   <h1>You need the Adobe Flash Player for this demo, download it by clicking the image below.</h1>
@@ -326,8 +391,8 @@ sub screen {
 <script type=\'text/javascript\'>
   jwplayer("'.$playerid.'").setup({
     file: "'.$rtmp_url.'",
-    width: "640",
-    height: "360",
+    width: "'.$player_width.'",
+    height: "'.$player_height.'",
     primary: "flash",
     image: "'.$player_url.'",
     autostart: "true",
