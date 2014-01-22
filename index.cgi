@@ -151,9 +151,28 @@ if ( $cgi->path_info eq '/dashboard' ) {
   }
   print $cgi->end_form;
 
+### PARAMS
+} elsif ( $cgi->path_info eq '/params' ) {
+  print "Parameters to tweak:";
+
+  my %params = (
+    chat_title    => 'The title of the overall chat window.',
+    chat_channel  => 'The title of the chat channel. The chat is configured to lock to this channel.',
+    chat_height   => 'The height of the chat box in pixels.',
+    player_height => 'The height of the player window in pixels.',
+    player_width  => 'The width of the player window in pixels.',
+    player_url    => 'The URL of the default background image for the player.',
+    rtmp_url      => 'The RTMP URL the player is configured to read from.'
+  );
+
+  for my $param ( sort keys %params ) {
+    my $value = get_param($username,$param);
+    print $cgi->p($cgi->b($param),$value);
+  }
+
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
-  print "Welcome $username - Edit your page template";
+  print "Edit your page template";
 
   my $dir = &get_directory($username);
   print $dir;
