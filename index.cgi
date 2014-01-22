@@ -53,6 +53,12 @@ if ( $cgi->path_info eq '/login' ) {
         $cgi->submit('Change your password'),
         $cgi->end_form;
 
+  print $cgi->start_form(-action=>'/index.cgi/chat'),
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->submit('Chat Settings'),
+        $cgi->end_form;
+
   print $cgi->start_form(-action=>'/index.cgi/uploads'),
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
@@ -104,10 +110,22 @@ if ( $cgi->path_info eq '/login' ) {
     my $path = &get_directory($username);
     my $output = $path .'/index.php';       
     print $cgi->p("Writing $output");
+    my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
+    $template->param('screen' => &screen() );
+    $template->param('chat' => '<?php $chat->printChat(); ?>' );
+
     open OUTPUT, '>', $output or die "Can't open file: $output";
-    print OUTPUT $tmpl;
+    print OUTPUT &index_header();    
+    print OUTPUT $template->output;
     close OUTPUT;
+    
     $tmpl = &get_page($username,'index');
+    
+    `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
+    `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+    `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
+    `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+    `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
   }
   
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
@@ -198,6 +216,14 @@ sub get_page {
   return $sth->fetchrow_arrayref->[0];
 }
 
+sub get_param {
+  my $user  = shift @_;
+  my $param = shift @_;
+  my $sth = $dbh->prepare('select value from params where username=? and param=?');
+  my $ret = $sth->execute($user,$param);
+  return $sth->fetchrow_arrayref->[0];
+}
+
 sub list_sites {
   my $sth = $dbh->prepare('select site from users order by site');
   my $ret = $sth->execute();
@@ -216,4 +242,101 @@ sub update_page {
 sub update_password {
   my $sth = $dbh->prepare('update users set password=? where username=?');
   return $sth->execute($_[1],$_[0]);
+}
+
+sub set_param {
+  my $user  = shift @_;
+  my $param = shift @_;
+  my $value = shift @_;
+  return undef unless defined $user and defined $param and defined $value;
+  my $sth = $dbh->prepare('select count(*) from params where username=? and param=?');
+  my $ret = $sth->execute($user,$param);
+  my $count = $sth->fetchrow_arrayref->[0];
+  
+  if ( $count > 0 ) {
+    $sth = $dbh->prepare('update params set value=? where username=? and param=?');
+    return $sth->execute($value,$user,$param);
+  } else {
+    $sth = $dbh->prepare('insert into params (username,param,value) values (?,?,?)');
+    return $sth->execute($user,$param,$value);
+  }
+}
+
+### Big things
+
+sub index_header {
+  #set_param($username,'chat_title',"Chat");
+  #set_param($username,'chat_channel',"pumapaw");
+
+  my $chat_title   = get_param($username,'chat_title');
+  my $chat_channel = get_param($username,'chat_channel');
+
+  return '<?php
+
+require_once dirname(__FILE__)."/chat/src/phpfreechat.class.php";
+
+$params = array();
+
+$params["serverid"] = md5(__FILE__); // calculate a unique id for this chat
+
+$params["title"] = "'.$chat_title.'"; // Chat title
+$params["channels"] = array("'.$chat_channel.'"); // Default channel to join
+$params["frozen_channels"] = array("'.$chat_channel.'"); // Only one channel allowed
+
+$params["theme"] = "wolf"; // Custom style
+$params["height"] = "430px"; // Height. No width setting sadly
+$params["displaytabclosebutton"] = false; // Get rid of the tab, wish this worked
+$params["displaytabimage"] = false; // Get rid of the tab, wish this worked
+$params["display_pfc_logo"] = false; // Remove the logo for phofreechat.net
+
+$params["admins"] = array( "OtherAdmin" => "nopassword", "Wolf" => "nopassword" ); // Admin info
+$params["nick"] = ""; // Force people to chose a nickname
+
+$params["shownotice"] = 5; // Show kicks and renicks
+$params["showsmileys"] = false; // Hide the smiley box at first
+$params["showwhosonline"] = false; // hide the user box at first
+
+$params["skip_proxies"] = array("censor"); // We don\'t mind naughty words.
+
+$params["nickname_colorlist"] = array(
+  "#000000", "#3636B2", "#2A8C2A", "#C33B3B", "#C73232",
+  "#80267F", "#66361F", "#D9A641", "#3DCC3D", "#1A5555",
+  "#2F8C74", "#4545E6", "#B037B0"
+);
+
+$chat = new phpFreeChat($params);
+
+?>';
+}
+
+sub screen {
+  #set_param($username,'rtmp_url',"rtmp://tv.pumapaw.com/oflaDemo/cougrtv");
+  set_param($username,'player_url',"http://tv.pumapaw.com/uploads/traci.jpg");
+
+  my $playerid = 'player_'.$username;
+
+  my $player_url = get_param($username,'player_url');
+  my $rtmp_url   = get_param($username,'rtmp_url');
+  
+  return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
+<div id="'.$playerid.'">
+  <h1>You need the Adobe Flash Player for this demo, download it by clicking the image below.</h1>
+  <p><a href="http://www.adobe.com/go/getflashplayer"><img src="http://www.adobe.com/images/shared/download_buttons/get_flash_player.gif" alt="Get Adobe Flash player" /></a></p>
+</div>
+<script type=\'text/javascript\'>
+  jwplayer("'.$playerid.'").setup({
+    file: "'.$rtmp_url.'",
+    width: "640",
+    height: "360",
+    primary: "flash",
+    image: "'.$player_url.'",
+    autostart: "true",
+  });
+
+  var timer=10000;
+  jwplayer().onIdle(function() {
+  	t=setTimeout("jwplayer().play()",10000);
+  });
+
+</script>';
 }
