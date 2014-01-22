@@ -75,31 +75,13 @@ if ( $cgi->path_info eq '/dashboard' ) {
 } elsif ( $cgi->path_info eq '/edit' ) {
   print "Edit your page template";
 
-  my $tmpl = &get_page($username,'index');
-
   if ( $cgi->param('template') ) {
     my $ret = &update_page($username,'index',$cgi->param('template'));
     print $cgi->p("DB Update returned: $ret");
-    my $path = &get_directory($username);
-    my $output = $path .'/index.php';       
-    print $cgi->p("Writing $output");
-    my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
-    $template->param('screen' => &screen() );
-    $template->param('chat' => '<?php $chat->printChat(); ?>' );
-
-    open OUTPUT, '>', $output or die "Can't open file: $output";
-    print OUTPUT &index_header();    
-    print OUTPUT $template->output;
-    close OUTPUT;
-    
-    $tmpl = &get_page($username,'index');
-    
-    `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
-    `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
-    `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
-    `cp -r /var/www/html/web-tv-core/resources/chat $path`;
-    `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
+    write_pages($username);
   }
+
+  my $tmpl = &get_page($username,'index');
   
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
         $cgi->hidden('username',$username),
@@ -169,6 +151,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
   my @order = qw/chat_title chat_channel chat_height player_width player_height player_url rtmp_url/;
   
+  my $made_changes = 0;
   for my $param_name (@order) {
     my $submitted_value = $cgi->param($param_name);
     next unless defined $submitted_value;
@@ -176,7 +159,10 @@ if ( $cgi->path_info eq '/dashboard' ) {
     next if $check eq $submitted_value;
     my $ret = set_param($username,$param_name,$submitted_value);
     print $cgi->p("Setting '$param_name' to '$submitted_value' returned $ret");
+    $made_changes++;
   }
+  
+  write_pages() if $made_changes;
   
   print $cgi->start_form(-action=>'/index.cgi/params'), 
         $cgi->hidden('username',$username),
@@ -481,4 +467,28 @@ sub screen {
   });
 
 </script>';
+}
+
+sub write_pages {
+  my $path = &get_directory($username);
+ 
+  my $output = $path .'/index.php';
+  print $cgi->p("Writing $output");
+
+  my $tmpl = &get_page($username,'index');
+    
+  my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
+  $template->param('screen' => &screen() );
+  $template->param('chat' => '<?php $chat->printChat(); ?>' );
+
+  open OUTPUT, '>', $output or die "Can't open file: $output";
+  print OUTPUT &index_header();    
+  print OUTPUT $template->output;
+  close OUTPUT;
+        
+  `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+  `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+  `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
 }
