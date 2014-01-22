@@ -153,7 +153,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
 ### PARAMS
 } elsif ( $cgi->path_info eq '/params' ) {
-  print "Parameters to tweak:";
+  print $cgi->h3("Parameters to tweak:");
 
   my %params = (
     chat_title    => 'The title of the overall chat window.',
@@ -167,15 +167,31 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
   my @order = qw/chat_title chat_channel chat_height player_width player_height player_url rtmp_url/;
   
-  print $cgi->start_form(-action=>'/index.cgi/params'), $cgi->start_table;
+  for my $param_name (@order) {
+    my $submitted_value = $cgi->param($param_name);
+    next unless defined $submitted_value;
+    my $check = get_param($username,$param_name);
+    next if $check eq $submitted_value;
+    my $ret = set_param($username,$param_name,$submitted_value);
+    print $cgi->p("Setting '$param_name' to '$submitted_value' returned $ret");
+  }
+  
+  print $cgi->start_form(-action=>'/index.cgi/params'), 
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->start_table;
   
   for my $param ( @order ) {
     my $value = get_param($username,$param);
     
-    print $cgi->Tr($cgi->td($cgi->b($param)),$cgi->td($cgi->textfield(-size=>60,-name=>$param,-value=>$value)),$cgi->td($params{$param}));
+    print $cgi->Tr(
+            $cgi->td($cgi->b($param)),
+            $cgi->td($cgi->textfield(-size=>60,-maxlength=>255,-name=>$param,-value=>$value)),
+            $cgi->td($params{$param})
+          );
   }
 
-  print $cgi->end_table, $cgi->end_form;
+  print $cgi->end_table, $cgi->submit('Update values'), $cgi->end_form;
 
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
