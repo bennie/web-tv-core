@@ -34,13 +34,11 @@ if ( $check < 1 and $cgi->path_info and $cgi->path_info ne '/login' ) {
 
 print $cgi->header, $cgi->start_html( -title=>'TV Sites', -style=>{'src'=>'/resources/sample.css'}, -head => '<!--[if lt IE 7]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE7.js" type="text/javascript"></script><![endif]-->'."\n".'<!--[if lt IE 8]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE8.js" type="text/javascript"></script><![endif]-->' );
 print '<body bgcolor="#FFFFFF">
-
 <div id="doc3" class="yui-t1">
    <div id="hd" role="banner"><h1>TV Sites</h1></div>
    <div id="bd" role="main">
 	<div id="yui-main">
 	<div class="yui-b"><div class="yui-g">
-
 ';
 
 ### DASHBOARD	
@@ -51,12 +49,6 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
         $cgi->submit('Edit Template'),
-        $cgi->end_form;
-
-  print $cgi->start_form(-action=>'/index.cgi/password'),
-        $cgi->hidden('username',$username),
-        $cgi->hidden('password',$password),
-        $cgi->submit('Change your password'),
         $cgi->end_form;
 
   print $cgi->start_form(-action=>'/index.cgi/params'),
@@ -71,10 +63,18 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->submit('Upload Files'),
         $cgi->end_form;
 
+  print $cgi->br;
+
+  print $cgi->start_form(-action=>'/index.cgi/password'),
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->submit('Change your password'),
+        $cgi->end_form;
+
 ### EDIT
 } elsif ( $cgi->path_info eq '/edit' ) {
-  print "Welcome $username - Edit your page template";
-  
+  print "Edit your page template";
+
   my $tmpl = &get_page($username,'index');
 
   if ( $cgi->param('template') ) {
@@ -105,8 +105,10 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
         $cgi->textarea(-cols=>80,-rows=>20,-name=>'template',-value=>$tmpl),
-        $cgi->submit('Save'),
-        $cgi->end_form;
+        $cgi->br, $cgi->submit('Save'),
+        $cgi->end_form, $cgi->br,
+        $cgi->code('&lt;tmpl_var name="CHAT"&gt; - This is the template tag for where the chat screen will be.'), $cgi->br,
+        $cgi->code('&lt;tmpl_var name="SCREEN"&gt; - This is the template tag for where the video player will be.');
 
 ### LOGIN
 } elsif ( $cgi->path_info eq '/login' ) {
@@ -195,11 +197,18 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
-  print "Edit your page template";
 
   my $dir = &get_directory($username);
-  print $dir;
+  #print "Actual working directory: $dir";
 
+  # Handle deletes
+  if ( $cgi->param('delete_file') ) {
+    my $file_to_delete = $dir . '/uploads/' . $cgi->param('delete_file');
+    print $cgi->p("Deleting $file_to_delete");
+    unlink($file_to_delete);
+  }
+    
+  # Handle uploads
   if ( $cgi->param('uploaded_file') ) {
     my $filename = $cgi->param('uploaded_file');
     my $handle   = $cgi->upload('uploaded_file');
@@ -214,8 +223,22 @@ if ( $cgi->path_info eq '/dashboard' ) {
     }
   }
 
+  print $cgi->h3("Your uploaded files:");
   my @files = &get_files($dir);
-  print $cgi->p(@files);
+
+  print $cgi->start_table;
+  for my $file (@files) {
+    print $cgi->Tr(
+            $cgi->td('http://'.get_site($username).'/uploads/'.$file),
+            $cgi->td($cgi->start_form(-action=>'/index.cgi/uploads'),$cgi->hidden('username',$username),$cgi->hidden('password',$password),$cgi->hidden('delete_file',$file),$cgi->submit('Delete'),$cgi->end_form)
+          );
+  }
+  print $cgi->Tr($cgi->td("(no files uploaded)")) unless scalar(@files);  
+  print $cgi->end_table;
+
+  print $cgi->br;
+
+  print $cgi->h3("Add a file:");
 
   print $cgi->start_multipart_form( -action=> '/index.cgi/uploads' ),
         $cgi->hidden('username',$username),
@@ -224,7 +247,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->submit('Save'),
         $cgi->end_form;
 
-  
+
 ### Default: List sites
 } else {
   print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} &list_sites() );
@@ -236,10 +259,10 @@ print '
 </div>
 </div>
 	</div>
-	<div class="yui-b">
-      '.( $username ? "[ $username ]" : '[ <a href="/index.cgi/login">LOGIN</a> ]').'
+	<div class="yui-b"><center>
+      '.( $username ? "[ $username ]".$cgi->br.$cgi->br.$cgi->start_form(-action=>'/index.cgi/dashboard').$cgi->hidden('username',$username).$cgi->hidden('password',$password).$cgi->submit('Back to Dashboard').$cgi->end_form : '[ <a href="/index.cgi/login">LOGIN</a> ]').'
       <div id="side"><p>&nbsp;</p></div>
-	</div>
+	</center></div>
 	
 	</div>
    <div id="ft" role="contentinfo">';
@@ -297,6 +320,12 @@ sub get_param {
   my $ret = $sth->execute($user,$param);
   my $ref = $sth->fetchrow_arrayref;
   return $ref ? $ref->[0] : undef;
+}
+
+sub get_site {
+  my $sth = $dbh->prepare('select site from users where username=?');
+  my $ret = $sth->execute(@_);
+  return $sth->fetchrow_arrayref->[0];
 }
 
 sub list_sites {
