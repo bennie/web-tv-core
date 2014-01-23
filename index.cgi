@@ -30,15 +30,19 @@ if ( $check < 1 and $cgi->path_info and $cgi->path_info ne '/login' ) {
   exit 0;
 }
 
-print $cgi->header, $cgi->start_html('TV Sites');
-print '<body bgcolor="#FFFFFF">';
+### Common header
 
-if ( $cgi->path_info eq '/login' ) {
-  print $cgi->p("Bad login.") if $username or $password;
-  print $cgi->start_form( -action=> '/index.cgi/dashboard' ), $cgi->textfield('username'),
-        $cgi->password_field('password'), $cgi->submit, $cgi->end_form;
+print $cgi->header, $cgi->start_html( -title=>'TV Sites', -style=>{'src'=>'/resources/sample.css'}, -head => '<!--[if lt IE 7]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE7.js" type="text/javascript"></script><![endif]-->'."\n".'<!--[if lt IE 8]><script src="http://ie7-js.googlecode.com/svn/version/2.0(beta3)/IE8.js" type="text/javascript"></script><![endif]-->' );
+print '<body bgcolor="#FFFFFF">
+<div id="doc3" class="yui-t1">
+   <div id="hd" role="banner"><h1>TV Sites</h1></div>
+   <div id="bd" role="main">
+	<div id="yui-main">
+	<div class="yui-b"><div class="yui-g">
+';
 
-} elsif ( $cgi->path_info eq '/dashboard' ) {
+### DASHBOARD	
+if ( $cgi->path_info eq '/dashboard' ) {
   print "Welcome $username";  
 
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
@@ -47,16 +51,10 @@ if ( $cgi->path_info eq '/login' ) {
         $cgi->submit('Edit Template'),
         $cgi->end_form;
 
-  print $cgi->start_form(-action=>'/index.cgi/password'),
+  print $cgi->start_form(-action=>'/index.cgi/params'),
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
-        $cgi->submit('Change your password'),
-        $cgi->end_form;
-
-  print $cgi->start_form(-action=>'/index.cgi/chat'),
-        $cgi->hidden('username',$username),
-        $cgi->hidden('password',$password),
-        $cgi->submit('Chat Settings'),
+        $cgi->submit('Tweak Params'),
         $cgi->end_form;
 
   print $cgi->start_form(-action=>'/index.cgi/uploads'),
@@ -65,6 +63,44 @@ if ( $cgi->path_info eq '/login' ) {
         $cgi->submit('Upload Files'),
         $cgi->end_form;
 
+  print $cgi->br;
+
+  print $cgi->start_form(-action=>'/index.cgi/password'),
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->submit('Change your password'),
+        $cgi->end_form;
+
+### EDIT
+} elsif ( $cgi->path_info eq '/edit' ) {
+  print "Edit your page template";
+
+  if ( $cgi->param('template') ) {
+    my $ret = &update_page($username,'index',$cgi->param('template'));
+    print $cgi->p("DB Update returned: $ret");
+    write_pages($username);
+  }
+
+  my $tmpl = &get_page($username,'index');
+  
+  print $cgi->start_form( -action=> '/index.cgi/edit' ),
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->textarea(-cols=>80,-rows=>20,-name=>'template',-value=>$tmpl),
+        $cgi->br, $cgi->submit('Save'),
+        $cgi->end_form, $cgi->br,
+        $cgi->code('&lt;tmpl_var name="CHAT"&gt; - This is the template tag for where the chat screen will be.'), $cgi->br,
+        $cgi->code('&lt;tmpl_var name="SCREEN"&gt; - This is the template tag for where the video player will be.');
+
+### LOGIN
+} elsif ( $cgi->path_info eq '/login' ) {
+  print $cgi->p("Bad login.") if $username or $password;
+  print $cgi->start_form( -action=> '/index.cgi/dashboard' ), 
+          $cgi->b('User: '), $cgi->textfield('username'), $cgi->br,
+          $cgi->b('Pass: '), $cgi->password_field('password'), $cgi->br,
+          $cgi->submit, $cgi->end_form;
+
+### PASSWORD
 } elsif ( $cgi->path_info eq '/password' ) {
   print "Welcome $username - Change your password";
   print $cgi->start_form(-action=>'/index.cgi/password'),
@@ -99,48 +135,66 @@ if ( $cgi->path_info eq '/login' ) {
   }
   print $cgi->end_form;
 
-} elsif ( $cgi->path_info eq '/edit' ) {
-  print "Welcome $username - Edit your page template";
+### PARAMS
+} elsif ( $cgi->path_info eq '/params' ) {
+  print $cgi->h3("Parameters to tweak:");
+
+  my %params = (
+    chat_title    => 'The title of the overall chat window.',
+    chat_channel  => 'The title of the chat channel. The chat is configured to lock to this channel.',
+    chat_height   => 'The height of the chat box in pixels.',
+    player_height => 'The height of the player window in pixels.',
+    player_width  => 'The width of the player window in pixels.',
+    player_url    => 'The URL of the default background image for the player.',
+    rtmp_url      => 'The RTMP URL the player is configured to read from.'
+  );
+
+  my @order = qw/chat_title chat_channel chat_height player_width player_height player_url rtmp_url/;
   
-  my $tmpl = &get_page($username,'index');
-
-  if ( $cgi->param('template') ) {
-    my $ret = &update_page($username,'index',$cgi->param('template'));
-    print $cgi->p("DB Update returned: $ret");
-    my $path = &get_directory($username);
-    my $output = $path .'/index.php';       
-    print $cgi->p("Writing $output");
-    my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
-    $template->param('screen' => &screen() );
-    $template->param('chat' => '<?php $chat->printChat(); ?>' );
-
-    open OUTPUT, '>', $output or die "Can't open file: $output";
-    print OUTPUT &index_header();    
-    print OUTPUT $template->output;
-    close OUTPUT;
-    
-    $tmpl = &get_page($username,'index');
-    
-    `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
-    `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
-    `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
-    `cp -r /var/www/html/web-tv-core/resources/chat $path`;
-    `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
+  my $made_changes = 0;
+  for my $param_name (@order) {
+    my $submitted_value = $cgi->param($param_name);
+    next unless defined $submitted_value;
+    my $check = get_param($username,$param_name);
+    next if $check eq $submitted_value;
+    my $ret = set_param($username,$param_name,$submitted_value);
+    print $cgi->p("Setting '$param_name' to '$submitted_value' returned $ret");
+    $made_changes++;
   }
   
-  print $cgi->start_form( -action=> '/index.cgi/edit' ),
+  write_pages() if $made_changes;
+  
+  print $cgi->start_form(-action=>'/index.cgi/params'), 
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
-        $cgi->textarea(-cols=>80,-rows=>20,-name=>'template',-value=>$tmpl),
-        $cgi->submit('Save'),
-        $cgi->end_form;
+        $cgi->start_table;
+  
+  for my $param ( @order ) {
+    my $value = get_param($username,$param);
+    
+    print $cgi->Tr(
+            $cgi->td($cgi->b($param)),
+            $cgi->td($cgi->textfield(-size=>60,-maxlength=>255,-name=>$param,-value=>$value)),
+            $cgi->td($params{$param})
+          );
+  }
 
+  print $cgi->end_table, $cgi->submit('Update values'), $cgi->end_form;
+
+### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
-  print "Welcome $username - Edit your page template";
 
   my $dir = &get_directory($username);
-  print $dir;
+  #print "Actual working directory: $dir";
 
+  # Handle deletes
+  if ( $cgi->param('delete_file') ) {
+    my $file_to_delete = $dir . '/uploads/' . $cgi->param('delete_file');
+    print $cgi->p("Deleting $file_to_delete");
+    unlink($file_to_delete);
+  }
+    
+  # Handle uploads
   if ( $cgi->param('uploaded_file') ) {
     my $filename = $cgi->param('uploaded_file');
     my $handle   = $cgi->upload('uploaded_file');
@@ -155,8 +209,22 @@ if ( $cgi->path_info eq '/login' ) {
     }
   }
 
+  print $cgi->h3("Your uploaded files:");
   my @files = &get_files($dir);
-  print $cgi->p(@files);
+
+  print $cgi->start_table;
+  for my $file (@files) {
+    print $cgi->Tr(
+            $cgi->td('http://'.get_site($username).'/uploads/'.$file),
+            $cgi->td($cgi->start_form(-action=>'/index.cgi/uploads'),$cgi->hidden('username',$username),$cgi->hidden('password',$password),$cgi->hidden('delete_file',$file),$cgi->submit('Delete'),$cgi->end_form)
+          );
+  }
+  print $cgi->Tr($cgi->td("(no files uploaded)")) unless scalar(@files);  
+  print $cgi->end_table;
+
+  print $cgi->br;
+
+  print $cgi->h3("Add a file:");
 
   print $cgi->start_multipart_form( -action=> '/index.cgi/uploads' ),
         $cgi->hidden('username',$username),
@@ -165,21 +233,35 @@ if ( $cgi->path_info eq '/login' ) {
         $cgi->submit('Save'),
         $cgi->end_form;
 
-  
-  
-} else {
-  print '[ <a href="/index.cgi/login">Admin</a> ]';
-  print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} &list_sites() );
 
+### Default: List sites
+} else {
+  print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} &list_sites() );
 }
 
 ### Footer
 
+print '
+</div>
+</div>
+	</div>
+	<div class="yui-b"><center>
+      '.( $username ? "[ $username ]".$cgi->br.$cgi->br.$cgi->start_form(-action=>'/index.cgi/dashboard').$cgi->hidden('username',$username).$cgi->hidden('password',$password).$cgi->submit('Back to Dashboard').$cgi->end_form : '[ <a href="/index.cgi/login">LOGIN</a> ]').'
+      <div id="side"><p>&nbsp;</p></div>
+	</center></div>
+	
+	</div>
+   <div id="ft" role="contentinfo">';
+   
 print $cgi->p('Path:',$cgi->path_info);
 for my $param ( $cgi->param ) {
   #print $cgi->p($param,$cgi->param($param));
-}
-print '</body></html>';
+}   
+   
+print '</div>
+</div>
+
+</body></html>';
 
 ### Subs
 
@@ -213,7 +295,8 @@ sub get_page {
   my $page = shift @_;
   my $sth = $dbh->prepare('select page from page where username=? and pagename=?');
   my $ret = $sth->execute($user,$page);
-  return $sth->fetchrow_arrayref->[0];
+  my $ref = $sth->fetchrow_arrayref;
+  return $ref ? $ref->[0] : undef;
 }
 
 sub get_param {
@@ -221,6 +304,13 @@ sub get_param {
   my $param = shift @_;
   my $sth = $dbh->prepare('select value from params where username=? and param=?');
   my $ret = $sth->execute($user,$param);
+  my $ref = $sth->fetchrow_arrayref;
+  return $ref ? $ref->[0] : undef;
+}
+
+sub get_site {
+  my $sth = $dbh->prepare('select site from users where username=?');
+  my $ret = $sth->execute(@_);
   return $sth->fetchrow_arrayref->[0];
 }
 
@@ -265,11 +355,26 @@ sub set_param {
 ### Big things
 
 sub index_header {
-  #set_param($username,'chat_title',"Chat");
-  #set_param($username,'chat_channel',"pumapaw");
-
   my $chat_title   = get_param($username,'chat_title');
   my $chat_channel = get_param($username,'chat_channel');
+  my $chat_height  = get_param($username,'chat_height');
+
+  # Set defaults for missing params
+
+  unless ( $chat_title ) {
+    $chat_title = 'Chat';
+    set_param($username,'chat_title',$chat_title);
+  }
+
+  unless ( $chat_channel ) {
+    $chat_channel = $username;
+    set_param($username,'chat_channel',$chat_channel);
+  }
+
+  unless ( $chat_height ) {
+    $chat_height = 430;
+    set_param($username,'chat_height',$chat_height);
+  }
 
   return '<?php
 
@@ -284,7 +389,7 @@ $params["channels"] = array("'.$chat_channel.'"); // Default channel to join
 $params["frozen_channels"] = array("'.$chat_channel.'"); // Only one channel allowed
 
 $params["theme"] = "wolf"; // Custom style
-$params["height"] = "430px"; // Height. No width setting sadly
+$params["height"] = "'.$chat_height.'px"; // Height. No width setting sadly
 $params["displaytabclosebutton"] = false; // Get rid of the tab, wish this worked
 $params["displaytabimage"] = false; // Get rid of the tab, wish this worked
 $params["display_pfc_logo"] = false; // Remove the logo for phofreechat.net
@@ -310,14 +415,37 @@ $chat = new phpFreeChat($params);
 }
 
 sub screen {
-  #set_param($username,'rtmp_url',"rtmp://tv.pumapaw.com/oflaDemo/cougrtv");
-  set_param($username,'player_url',"http://tv.pumapaw.com/uploads/traci.jpg");
-
   my $playerid = 'player_'.$username;
 
-  my $player_url = get_param($username,'player_url');
-  my $rtmp_url   = get_param($username,'rtmp_url');
-  
+  my $player_height = get_param($username,'player_height');
+  my $player_width  = get_param($username,'player_width');
+  my $player_url    = get_param($username,'player_url');
+  my $rtmp_url      = get_param($username,'rtmp_url');
+
+  # Set defaults for missing params
+
+  unless ( $player_height ) {
+    $player_height = 360;
+    set_param($username,'player_height',$player_height);
+  }
+
+  unless ( $player_width ) {
+    $player_width = 640;
+    set_param($username,'player_width',$player_width);
+  }
+
+  unless ( $player_url ) {
+    $player_url = 'http://tv.macrophile.com/resources/default-images/focus.jpg';
+    set_param($username,'player_url',$player_url);
+  }
+
+  unless ( $rtmp_url ) {
+    $rtmp_url = 'rtmp://tv.pumapaw.com/oflaDemo/'.$username.'tv';
+    set_param($username,'rtmp_url',$rtmp_url);
+  }
+
+  # Return the screen layout  
+
   return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
 <div id="'.$playerid.'">
   <h1>You need the Adobe Flash Player for this demo, download it by clicking the image below.</h1>
@@ -326,8 +454,8 @@ sub screen {
 <script type=\'text/javascript\'>
   jwplayer("'.$playerid.'").setup({
     file: "'.$rtmp_url.'",
-    width: "640",
-    height: "360",
+    width: "'.$player_width.'",
+    height: "'.$player_height.'",
     primary: "flash",
     image: "'.$player_url.'",
     autostart: "true",
@@ -339,4 +467,28 @@ sub screen {
   });
 
 </script>';
+}
+
+sub write_pages {
+  my $path = &get_directory($username);
+ 
+  my $output = $path .'/index.php';
+  print $cgi->p("Writing $output");
+
+  my $tmpl = &get_page($username,'index');
+    
+  my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
+  $template->param('screen' => &screen() );
+  $template->param('chat' => '<?php $chat->printChat(); ?>' );
+
+  open OUTPUT, '>', $output or die "Can't open file: $output";
+  print OUTPUT &index_header();    
+  print OUTPUT $template->output;
+  close OUTPUT;
+        
+  `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+  `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+  `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
 }
