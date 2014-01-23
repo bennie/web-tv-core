@@ -4,13 +4,14 @@ use CGI;
 use CGI::Carp qw/fatalsToBrowser/;
 use DBI;
 use HTML::Template;
+use LocalAuth;
 use strict;
 
 my $cgi = new CGI;
 
-my $user = 'username';
-my $pass = 'password';
-my $dsn = "DBI:mysql:database=mydatabase";
+my $user = $LocalAuth::TV_USER;
+my $pass = $LocalAuth::TV_PASS;
+my $dsn = "DBI:mysql:database=".$LocalAuth::TV_DB;
 my $dbh = DBI->connect($dsn, $user, $pass);
 
 ### Check password 
