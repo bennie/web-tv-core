@@ -141,16 +141,18 @@ if ( $cgi->path_info eq '/dashboard' ) {
   print $cgi->h3("Parameters to tweak:");
 
   my %params = (
-    chat_title    => 'The title of the overall chat window.',
-    chat_channel  => 'The title of the chat channel. The chat is configured to lock to this channel.',
-    chat_height   => 'The height of the chat box in pixels.',
-    player_height => 'The height of the player window in pixels.',
-    player_width  => 'The width of the player window in pixels.',
-    player_url    => 'The URL of the default background image for the player.',
-    rtmp_url      => 'The RTMP URL the player is configured to read from.'
+    chat_title      => 'The title of the overall chat window.',
+    chat_channel    => 'The title of the chat channel. The chat is configured to lock to this channel.',
+    chat_height     => 'The height of the chat box in pixels.',
+    char_admin_user => 'Chat admin user, this chat nickname can control the chat.',
+    char_admin_pass => 'Chat admin password. This is the admins password to take control.',
+    player_height   => 'The height of the player window in pixels.',
+    player_width    => 'The width of the player window in pixels.',
+    player_url      => 'The URL of the default background image for the player.',
+    rtmp_url        => 'The RTMP URL the player is configured to read from.'
   );
 
-  my @order = qw/chat_title chat_channel chat_height player_width player_height player_url rtmp_url/;
+  my @order = qw/chat_title chat_channel chat_height char_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
   
   my $made_changes = 0;
   for my $param_name (@order) {
@@ -356,11 +358,20 @@ sub set_param {
 ### Big things
 
 sub index_header {
-  my $chat_title   = get_param($username,'chat_title');
-  my $chat_channel = get_param($username,'chat_channel');
-  my $chat_height  = get_param($username,'chat_height');
+  my $chat_title      = get_param($username,'chat_title');
+  my $chat_channel    = get_param($username,'chat_channel');
+  my $chat_height     = get_param($username,'chat_height');
+  my $chat_admin_user = get_param($username,'chat_admin_user');
+  my $chat_admin_pass = get_param($username,'chat_admin_pass');
 
   # Set defaults for missing params
+  #my %default = (
+  #  chat_title      => 'Chat',
+  #  chat_channel    => $username,
+  #  chat_height     => 430,
+  #  chat_admin_user => 'admin',
+  #  chat_admin_pass => 'Passw0rd1'
+  #);
 
   unless ( $chat_title ) {
     $chat_title = 'Chat';
@@ -375,6 +386,16 @@ sub index_header {
   unless ( $chat_height ) {
     $chat_height = 430;
     set_param($username,'chat_height',$chat_height);
+  }
+
+  unless ( $chat_admin_user ) {
+    $chat_admin_user = 'admin';
+    set_param($username,'chat_admin_user',$chat_admin_user);
+  }
+
+  unless ( $chat_admin_pass ) {
+    $chat_admin_pass = 'Passw0rd1';
+    set_param($username,'chat_admin_pass',$chat_admin_pass);
   }
 
   return '<?php
@@ -395,7 +416,7 @@ $params["displaytabclosebutton"] = false; // Get rid of the tab, wish this worke
 $params["displaytabimage"] = false; // Get rid of the tab, wish this worked
 $params["display_pfc_logo"] = false; // Remove the logo for phofreechat.net
 
-$params["admins"] = array( "OtherAdmin" => "nopassword", "Wolf" => "nopassword" ); // Admin info
+$params["admins"] = array( "OtherAdmin" => "nopassword", "'.$chat_admin_user.'" => "'.$chat_admin_pass.'" ); // Admin info
 $params["nick"] = ""; // Force people to chose a nickname
 
 $params["shownotice"] = 5; // Show kicks and renicks
