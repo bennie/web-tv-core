@@ -144,15 +144,15 @@ if ( $cgi->path_info eq '/dashboard' ) {
     chat_title      => 'The title of the overall chat window.',
     chat_channel    => 'The title of the chat channel. The chat is configured to lock to this channel.',
     chat_height     => 'The height of the chat box in pixels.',
-    char_admin_user => 'Chat admin user, this chat nickname can control the chat.',
-    char_admin_pass => 'Chat admin password. This is the admins password to take control.',
+    chat_admin_user => 'Chat admin user, this chat nickname can control the chat.',
+    chat_admin_pass => 'Chat admin password to take control of the channel.',
     player_height   => 'The height of the player window in pixels.',
     player_width    => 'The width of the player window in pixels.',
     player_url      => 'The URL of the default background image for the player.',
     rtmp_url        => 'The RTMP URL the player is configured to read from.'
   );
 
-  my @order = qw/chat_title chat_channel chat_height char_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
+  my @order = qw/chat_title chat_channel chat_height chat_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
   
   my $made_changes = 0;
   for my $param_name (@order) {
