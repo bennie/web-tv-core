@@ -213,7 +213,9 @@ if ( $cgi->path_info eq '/dashboard' ) {
     print $cgi->h3("Send an SMS message:");
     my $site = get_site($username);
     
-    print $cgi->start_form(),
+    print $cgi->start_form(-action=>'/index.cgi/sms'),
+          $cgi->hidden('username',$username),
+          $cgi->hidden('password',$password),
           $cgi->textarea(
             -name => 'message', -rows => 5, -columns=> 50,
             -default => "http://$site/ is now Online!"
@@ -581,7 +583,12 @@ sub write_pages {
         
   `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
   `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+
   `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
   `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+
+  `if [ -f $path/subscribe.cgi ]; then rm -f $path/subscribe.cgi; fi`;
+  `cp /var/www/html/web-tv-core/resources/subscribe.cgi $path`;
+
   `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
 }
