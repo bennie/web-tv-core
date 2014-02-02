@@ -5,6 +5,7 @@ use CGI::Carp qw/fatalsToBrowser/;
 use DBI;
 use HTML::Template;
 use LocalAuth;
+use WWW::Twilio::API;
 use strict;
 
 my $cgi = new CGI;
@@ -45,6 +46,14 @@ print '<body bgcolor="#FFFFFF">
 ### DASHBOARD	
 if ( $cgi->path_info eq '/dashboard' ) {
   print "Welcome $username";  
+
+  print $cgi->start_form(-action=>'/index.cgi/sms'),
+        $cgi->hidden('username',$username),
+        $cgi->hidden('password',$password),
+        $cgi->submit('Send SMS Message'),
+        $cgi->end_form;
+
+  print $cgi->br;
 
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
         $cgi->hidden('username',$username),
@@ -184,6 +193,41 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
   print $cgi->end_table, $cgi->submit('Update values'), $cgi->end_form;
 
+### SMS
+} elsif ( $cgi->path_info eq '/sms' ) {
+
+  if ( $cgi->param('message') ) {
+    print $cgi->h3("Sending SMS messages:");
+
+    my $message = $cgi->param('message');
+    print $cgi->blockquote($message),
+          $cgi->p("Sending messages...");
+          
+    my %db = &get_sms_list();
+    for my $number ( keys %db ) {
+      my $ret = &send_message($number,$cgi->param('message'));
+      print $cgi->p($number,'...',$ret->{message},'('.$ret->{code}.')');
+    }
+        
+  } else {
+    print $cgi->h3("Send an SMS message:");
+    my $site = get_site($username);
+    
+    print $cgi->start_form(),
+          $cgi->textarea(
+            -name => 'message', -rows => 5, -columns=> 50,
+            -default => "http://$site/ is now Online!"
+          ),
+          $cgi->br,
+          $cgi->submit,
+          $cgi->end_form; 
+      my %db = &get_sms_list();
+      print $cgi->p('The current list:');        
+      for my $number ( keys %db ) {
+  	    print $number, "\t", $db{$number}, $cgi->br, "\n";
+      }        
+  }
+
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
 
@@ -315,6 +359,16 @@ sub get_site {
   my $sth = $dbh->prepare('select site from users where username=?');
   my $ret = $sth->execute(@_);
   return $sth->fetchrow_arrayref->[0];
+}
+
+sub get_sms_list {
+  my $sth = $dbh->prepare('select phone, name from sms where username=? and verified is true');
+  my $ret = $sth->execute($username);
+  my %list;
+  while ( my $ref = $sth->fetchrow_arrayref ) {
+    $list{$ref->[0]} = $ref->[1];
+  }
+  return %list;
 }
 
 sub list_sites {
@@ -489,6 +543,23 @@ sub screen {
   });
 
 </script>';
+}
+
+sub send_message {
+  my $number  = shift @_;
+  my $message = shift @_;
+
+  our $twilio;
+  $twilio = WWW::Twilio::API->new(
+                      AccountSid => $LocalAuth::TWILIO_SID,
+                      AuthToken  => $LocalAuth::TWILIO_AUTH
+                    ) unless defined $twilio;
+
+  return $twilio->POST( 'SMS/Messages', 
+    From => $LocalAuth::TWILIO_PHONE,
+    To => $number, 
+    Body => $message
+  );
 }
 
 sub write_pages {
