@@ -22,7 +22,7 @@ my $username = $cgi->param('username');
 my $password = $cgi->param('password');
 
 if ( $username and $password ) {
-  $check =  &check_password( $cgi->param('username'),  $cgi->param('password') );
+  $check =  check_password( $cgi->param('username'),  $cgi->param('password') );
 }
 
 #### Handle pages
@@ -86,12 +86,12 @@ if ( $cgi->path_info eq '/dashboard' ) {
   print "Edit your page template";
 
   if ( $cgi->param('template') ) {
-    my $ret = &update_page($username,'index',$cgi->param('template'));
+    my $ret = update_page($username,'index',$cgi->param('template'));
     print $cgi->p("DB Update returned: $ret");
     write_pages($username);
   }
 
-  my $tmpl = &get_page($username,'index');
+  my $tmpl = get_page($username,'index');
   
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
         $cgi->hidden('username',$username),
@@ -130,7 +130,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
           $cgi->p('Confirm New Password',$cgi->param('check_password')),
           $cgi->submit('Set password');
     } else {
-      my $ret = &update_password($username,$cgi->param('check_password'));
+      my $ret = update_password($username,$cgi->param('check_password'));
       print "Updating password returned ", $ret, ". ",$cgi->param('check_password'),
             $cgi->hidden('username',$username),
             $cgi->hidden('password',$cgi->param('check_password')),
@@ -203,9 +203,9 @@ if ( $cgi->path_info eq '/dashboard' ) {
     print $cgi->blockquote($message),
           $cgi->p("Sending messages...");
           
-    my %db = &get_sms_list();
+    my %db = get_sms_list();
     for my $number ( keys %db ) {
-      my $ret = &send_message($number,$cgi->param('message'));
+      my $ret = send_message($number,$cgi->param('message'));
       print $cgi->p($number,'...',$ret->{message},'('.$ret->{code}.')');
     }
         
@@ -223,7 +223,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
           $cgi->br,
           $cgi->submit,
           $cgi->end_form; 
-      my %db = &get_sms_list();
+      my %db = get_sms_list();
       print $cgi->p('The current list:');        
       for my $number ( keys %db ) {
   	    print $number, "\t", $db{$number}, $cgi->br, "\n";
@@ -233,7 +233,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
 ### UPLOADS
 } elsif ( $cgi->path_info eq '/uploads' ) {
 
-  my $dir = &get_directory($username);
+  my $dir = get_directory($username);
   #print "Actual working directory: $dir";
 
   # Handle deletes
@@ -259,7 +259,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
   }
 
   print $cgi->h3("Your uploaded files:");
-  my @files = &get_files($dir);
+  my @files = get_files($dir);
 
   print $cgi->start_table;
   for my $file (@files) {
@@ -285,7 +285,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
 
 ### Default: List sites
 } else {
-  print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} &list_sites() );
+  print $cgi->ul( map {$cgi->li($cgi->a({-href=>'http://'.$_.'/'},'http://'.$_.'/'))} list_sites() );
 }
 
 ### Footer
@@ -565,21 +565,34 @@ sub send_message {
 }
 
 sub write_pages {
-  my $path = &get_directory($username);
+  my $path = get_directory($username);
  
-  my $output = $path .'/index.php';
-  print $cgi->p("Writing $output");
+  my $index_page     = $path .'/index.php';
+  my $subscribe_page = $path .'/subscribe.cgi';
+  
+  print $cgi->p("Writing $index_page");
 
-  my $tmpl = &get_page($username,'index');
+  my $tmpl = get_page($username,'index');
     
-  my $template = HTML::Template->new( scalarref => \$tmpl, option => 'value', die_on_bad_params => 0 );    
-  $template->param('screen' => &screen() );
+  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );    
+  $template->param('screen' => screen() );
   $template->param('chat' => '<?php $chat->printChat(); ?>' );
 
-  open OUTPUT, '>', $output or die "Can't open file: $output";
-  print OUTPUT &index_header();    
-  print OUTPUT $template->output;
-  close OUTPUT;
+  open  INDEX, '>', $index_page or die "Can't open file: $index_page";
+  print INDEX index_header();    
+  print INDEX $template->output;
+  close INDEX;
+
+  print $cgi->p("Writing $subscribe_page");
+
+  unlink($subscribe_page) if -f $subscribe_page;
+
+  $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/subscribe.cgi', die_on_bad_params => 0 );
+  $template->param('username' => $username );
+
+  open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
+  print SUBSCRIBE $template->output;
+  close SUBSCRIBE;
         
   `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
   `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
@@ -587,8 +600,7 @@ sub write_pages {
   `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
   `cp -r /var/www/html/web-tv-core/resources/chat $path`;
 
-  `if [ -f $path/subscribe.cgi ]; then rm -f $path/subscribe.cgi; fi`;
-  `cp /var/www/html/web-tv-core/resources/subscribe.cgi $path`;
-
   `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
+  
+  `chmod 0755 $index_page $subscribe_page`;
 }

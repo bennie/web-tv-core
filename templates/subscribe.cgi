@@ -4,6 +4,7 @@ use CGI;
 use DBI;
 use Data::Dumper;
 use HTML::Template;
+use LocalAuth;
 use strict;
 
 my $cgi = new CGI;
@@ -12,9 +13,9 @@ my $tmpl = HTML::Template->new(filename => '/var/www/html/web-tv-core/templates/
 my $user = $LocalAuth::TV_USER;
 my $pass = $LocalAuth::TV_PASS;
 my $dsn = "DBI:mysql:database=".$LocalAuth::TV_DB;
-my $dbh = DBI->connect($dsn, $user, $pass);
+my $dbh = DBI->connect($dsn, $user, $pass) or die "DB Connect Error: $DBI::errstr";
 
-my $username = 'bennie';
+my $username = '<tmpl_var name="username">';
 
 if ( $cgi->param('number') ) {
   my $number = $cgi->param('number');
