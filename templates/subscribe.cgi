@@ -45,7 +45,7 @@ if ( $cgi->param('number') ) {
 } else {
   print $cgi->header;
   my $body = $cgi->start_form()
-           . $cgi->h3("Subscribe to Wolf TV! Get SMS alerts when a stream starts!")
+           . $cgi->h3("Subscribe to <tmpl_var name='title'>! Get SMS alerts when a stream starts!")
            . $cgi->table(
              $cgi->Tr(
                $cgi->td($cgi->b('Phone:')),
@@ -53,7 +53,7 @@ if ( $cgi->param('number') ) {
              ),
              $cgi->Tr(
                $cgi->td($cgi->b('Fan Name:')),
-               $cgi->td($cgi->textfield(-name=>'name'),'(optional, for Wolf\'s eyes only.)')
+               $cgi->td($cgi->textfield(-name=>'name'),'(optional, for <tmpl_var name='uc_username'>\'s eyes only.)')
              )
            )
            . $cgi->br

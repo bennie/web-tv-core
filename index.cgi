@@ -15,6 +15,8 @@ my $pass = $LocalAuth::TV_PASS;
 my $dsn = "DBI:mysql:database=".$LocalAuth::TV_DB;
 my $dbh = DBI->connect($dsn, $user, $pass);
 
+my $default_player_image = 'http://tv.macrophile.com/resources/default-images/focus.jpg';
+
 ### Check password 
 
 my $check = 0;
@@ -150,6 +152,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
   print $cgi->h3("Parameters to tweak:");
 
   my %params = (
+    title           => 'Title of the overall livestream window',
     chat_title      => 'The title of the overall chat window.',
     chat_channel    => 'The title of the chat channel. The chat is configured to lock to this channel.',
     chat_height     => 'The height of the chat box in pixels.',
@@ -161,13 +164,13 @@ if ( $cgi->path_info eq '/dashboard' ) {
     rtmp_url        => 'The RTMP URL the player is configured to read from.'
   );
 
-  my @order = qw/chat_title chat_channel chat_height chat_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
+  my @order = qw/title chat_title chat_channel chat_height chat_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
   
   my $made_changes = 0;
   for my $param_name (@order) {
     my $submitted_value = $cgi->param($param_name);
     next unless defined $submitted_value;
-    my $check = get_param($username,$param_name);
+    my $check = get_param($param_name);
     next if $check eq $submitted_value;
     my $ret = set_param($username,$param_name,$submitted_value);
     print $cgi->p("Setting '$param_name' to '$submitted_value' returned $ret");
@@ -182,7 +185,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->start_table;
   
   for my $param ( @order ) {
-    my $value = get_param($username,$param);
+    my $value = get_param($param);
     
     print $cgi->Tr(
             $cgi->td($cgi->b($param)),
@@ -211,14 +214,15 @@ if ( $cgi->path_info eq '/dashboard' ) {
         
   } else {
     print $cgi->h3("Send an SMS message:");
-    my $site = get_site($username);
+    my $site  = get_site($username);
+    my $title = get_param('title');
     
     print $cgi->start_form(-action=>'/index.cgi/sms'),
           $cgi->hidden('username',$username),
           $cgi->hidden('password',$password),
           $cgi->textarea(
             -name => 'message', -rows => 5, -columns=> 50,
-            -default => "http://$site/ is now Online!"
+            -default => "http://$site/ - $title is now Online!"
           ),
           $cgi->br,
           $cgi->submit,
@@ -349,12 +353,29 @@ sub get_page {
 }
 
 sub get_param {
-  my $user  = shift @_;
   my $param = shift @_;
+  my $value = undef;
+
   my $sth = $dbh->prepare('select value from params where username=? and param=?');
-  my $ret = $sth->execute($user,$param);
+  my $ret = $sth->execute($username,$param);
   my $ref = $sth->fetchrow_arrayref;
-  return $ref ? $ref->[0] : undef;
+  $value = $ref->[0] if $ref;
+
+  unless ( $value ) { # Populate defaults if they aren't in the DB
+    $value = ucfirst($username.' TV') if $param eq 'title';
+    $value = 'Chat'                   if $param eq 'chat_title';
+    $value = ucfirst($username)       if $param eq 'chat_channel';
+    $value = 430                      if $param eq 'chat_height';
+    $value = 'admin'                  if $param eq 'chat_admin_user';
+    $value = 'Passw0rd1'              if $param eq 'chat_admin_pass';
+    $value = 360                      if $param eq 'player_height';
+    $value = 640                      if $param eq 'player_width';
+    $value = $default_player_image    if $param eq 'player_url';
+    $value = 'rtmp://tv.macrophile.com/oflaDemo/'.$username.'tv' if $param eq 'rtmp_url';
+    set_param($username,$param,$value) if $value;
+  }
+
+  return $value;
 }
 
 sub get_site {
@@ -393,6 +414,23 @@ sub update_password {
   return $sth->execute($_[1],$_[0]);
 }
 
+sub send_message {
+  my $number  = shift @_;
+  my $message = shift @_;
+
+  our $twilio;
+  $twilio = WWW::Twilio::API->new(
+                      AccountSid => $LocalAuth::TWILIO_SID,
+                      AuthToken  => $LocalAuth::TWILIO_AUTH
+                    ) unless defined $twilio;
+
+  return $twilio->POST( 'SMS/Messages', 
+    From => $LocalAuth::TWILIO_PHONE,
+    To => $number, 
+    Body => $message
+  );
+}
+
 sub set_param {
   my $user  = shift @_;
   my $param = shift @_;
@@ -411,48 +449,58 @@ sub set_param {
   }
 }
 
-### Big things
+sub write_pages {
+  my $path = get_directory($username);
+ 
+  my $index_page     = $path .'/index.php';
+  my $subscribe_page = $path .'/subscribe.cgi';
+  
+  print $cgi->p("Writing $index_page");
+
+  my $tmpl = get_page($username,'index');
+    
+  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );    
+  $template->param('screen' => screen() );
+  $template->param('chat' => '<?php $chat->printChat(); ?>' );
+
+  open  INDEX, '>', $index_page or die "Can't open file: $index_page";
+  print INDEX index_header();    
+  print INDEX $template->output;
+  close INDEX;
+
+  print $cgi->p("Writing $subscribe_page");
+
+  unlink($subscribe_page) if -f $subscribe_page;
+
+  $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/subscribe.cgi', die_on_bad_params => 0 );
+  $template->param('username' => $username );
+  $template->param('title' => get_param('title') );
+  $template->param('uc_username' => ucfirst($username) );
+
+  open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
+  print SUBSCRIBE $template->output;
+  close SUBSCRIBE;
+        
+  `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+
+  `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+
+  `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
+  
+  `chmod 0755 $index_page $subscribe_page`;
+}
+
+### Big page blocks
 
 sub index_header {
-  my $chat_title      = get_param($username,'chat_title');
-  my $chat_channel    = get_param($username,'chat_channel');
-  my $chat_height     = get_param($username,'chat_height');
-  my $chat_admin_user = get_param($username,'chat_admin_user');
-  my $chat_admin_pass = get_param($username,'chat_admin_pass');
-
-  # Set defaults for missing params
-  #my %default = (
-  #  chat_title      => 'Chat',
-  #  chat_channel    => $username,
-  #  chat_height     => 430,
-  #  chat_admin_user => 'admin',
-  #  chat_admin_pass => 'Passw0rd1'
-  #);
-
-  unless ( $chat_title ) {
-    $chat_title = 'Chat';
-    set_param($username,'chat_title',$chat_title);
-  }
-
-  unless ( $chat_channel ) {
-    $chat_channel = $username;
-    set_param($username,'chat_channel',$chat_channel);
-  }
-
-  unless ( $chat_height ) {
-    $chat_height = 430;
-    set_param($username,'chat_height',$chat_height);
-  }
-
-  unless ( $chat_admin_user ) {
-    $chat_admin_user = 'admin';
-    set_param($username,'chat_admin_user',$chat_admin_user);
-  }
-
-  unless ( $chat_admin_pass ) {
-    $chat_admin_pass = 'Passw0rd1';
-    set_param($username,'chat_admin_pass',$chat_admin_pass);
-  }
+  my $title           = get_param('title');
+  my $chat_title      = get_param('chat_title');
+  my $chat_channel    = get_param('chat_channel');
+  my $chat_height     = get_param('chat_height');
+  my $chat_admin_user = get_param('chat_admin_user');
+  my $chat_admin_pass = get_param('chat_admin_pass');
 
   return '<?php
 
@@ -495,35 +543,12 @@ $chat = new phpFreeChat($params);
 sub screen {
   my $playerid = 'player_'.$username;
 
-  my $player_height = get_param($username,'player_height');
-  my $player_width  = get_param($username,'player_width');
-  my $player_url    = get_param($username,'player_url');
-  my $rtmp_url      = get_param($username,'rtmp_url');
-
-  # Set defaults for missing params
-
-  unless ( $player_height ) {
-    $player_height = 360;
-    set_param($username,'player_height',$player_height);
-  }
-
-  unless ( $player_width ) {
-    $player_width = 640;
-    set_param($username,'player_width',$player_width);
-  }
-
-  unless ( $player_url ) {
-    $player_url = 'http://tv.macrophile.com/resources/default-images/focus.jpg';
-    set_param($username,'player_url',$player_url);
-  }
-
-  unless ( $rtmp_url ) {
-    $rtmp_url = 'rtmp://tv.pumapaw.com/oflaDemo/'.$username.'tv';
-    set_param($username,'rtmp_url',$rtmp_url);
-  }
+  my $player_height = get_param('player_height');
+  my $player_width  = get_param('player_width');
+  my $player_url    = get_param('player_url');
+  my $rtmp_url      = get_param('rtmp_url');
 
   # Return the screen layout  
-
   return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
 <div id="'.$playerid.'">
   <h1>You need the Adobe Flash Player for this demo, download it by clicking the image below.</h1>
@@ -545,62 +570,4 @@ sub screen {
   });
 
 </script>';
-}
-
-sub send_message {
-  my $number  = shift @_;
-  my $message = shift @_;
-
-  our $twilio;
-  $twilio = WWW::Twilio::API->new(
-                      AccountSid => $LocalAuth::TWILIO_SID,
-                      AuthToken  => $LocalAuth::TWILIO_AUTH
-                    ) unless defined $twilio;
-
-  return $twilio->POST( 'SMS/Messages', 
-    From => $LocalAuth::TWILIO_PHONE,
-    To => $number, 
-    Body => $message
-  );
-}
-
-sub write_pages {
-  my $path = get_directory($username);
- 
-  my $index_page     = $path .'/index.php';
-  my $subscribe_page = $path .'/subscribe.cgi';
-  
-  print $cgi->p("Writing $index_page");
-
-  my $tmpl = get_page($username,'index');
-    
-  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );    
-  $template->param('screen' => screen() );
-  $template->param('chat' => '<?php $chat->printChat(); ?>' );
-
-  open  INDEX, '>', $index_page or die "Can't open file: $index_page";
-  print INDEX index_header();    
-  print INDEX $template->output;
-  close INDEX;
-
-  print $cgi->p("Writing $subscribe_page");
-
-  unlink($subscribe_page) if -f $subscribe_page;
-
-  $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/subscribe.cgi', die_on_bad_params => 0 );
-  $template->param('username' => $username );
-
-  open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
-  print SUBSCRIBE $template->output;
-  close SUBSCRIBE;
-        
-  `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
-  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
-
-  `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
-  `cp -r /var/www/html/web-tv-core/resources/chat $path`;
-
-  `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
-  
-  `chmod 0755 $index_page $subscribe_page`;
 }
