@@ -102,7 +102,11 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->br, $cgi->submit('Save'),
         $cgi->end_form, $cgi->br,
         $cgi->code('&lt;tmpl_var name="CHAT"&gt; - This is the template tag for where the chat screen will be.'), $cgi->br,
-        $cgi->code('&lt;tmpl_var name="SCREEN"&gt; - This is the template tag for where the video player will be.');
+        $cgi->code('&lt;tmpl_var name="SCREEN"&gt; - This is the template tag for where the video player will be.'), $cgi->br,
+        $cgi->br,
+        $cgi->code('&lt;tmpl_var name="TITLE"&gt; - The title of your streaming site as you configured in params:',get_param('title')), $cgi->br,
+        $cgi->code('&lt;tmpl_var name="USERNAME"&gt; - Your login username here:',ucfirst($username)), $cgi->br,
+        $cgi->code('&lt;tmpl_var name="UC_USERNAME"&gt; - A first-letter-upper-cased version of your username:',$username);
 
 ### LOGIN
 } elsif ( $cgi->path_info eq '/login' ) {
@@ -460,8 +464,11 @@ sub write_pages {
   my $tmpl = get_page($username,'index');
     
   my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );    
-  $template->param('screen' => screen() );
   $template->param('chat' => '<?php $chat->printChat(); ?>' );
+  $template->param('screen' => screen() );
+  $template->param('title' => get_param('title') );
+  $template->param('uc_username' => ucfirst($username) );
+  $template->param('username' => $username );
 
   open  INDEX, '>', $index_page or die "Can't open file: $index_page";
   print INDEX index_header();    
@@ -473,9 +480,9 @@ sub write_pages {
   unlink($subscribe_page) if -f $subscribe_page;
 
   $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/subscribe.cgi', die_on_bad_params => 0 );
-  $template->param('username' => $username );
   $template->param('title' => get_param('title') );
   $template->param('uc_username' => ucfirst($username) );
+  $template->param('username' => $username );
 
   open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
   print SUBSCRIBE $template->output;
