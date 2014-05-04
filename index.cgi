@@ -105,8 +105,8 @@ if ( $cgi->path_info eq '/dashboard' ) {
         $cgi->code('&lt;tmpl_var name="SCREEN"&gt; - This is the template tag for where the video player will be.'), $cgi->br,
         $cgi->br,
         $cgi->code('&lt;tmpl_var name="TITLE"&gt; - The title of your streaming site as you configured in params:',get_param('title')), $cgi->br,
-        $cgi->code('&lt;tmpl_var name="USERNAME"&gt; - Your login username here:',ucfirst($username)), $cgi->br,
-        $cgi->code('&lt;tmpl_var name="UC_USERNAME"&gt; - A first-letter-upper-cased version of your username:',$username);
+        $cgi->code('&lt;tmpl_var name="USERNAME"&gt; - Your login username here:',$username), $cgi->br,
+        $cgi->code('&lt;tmpl_var name="UC_USERNAME"&gt; - A first-letter-upper-cased version of your username:',ucfirst($username));
 
 ### LOGIN
 } elsif ( $cgi->path_info eq '/login' ) {
