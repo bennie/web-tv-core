@@ -469,8 +469,8 @@ sub write_pages {
   $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'/chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
 
   $template->param('title' => get_param('title') );
-  #$template->param('uc_username' => ucfirst($username) );
-  #$template->param('username' => $username );
+  $template->param('uc_username' => ucfirst($username) );
+  $template->param('username' => $username );
 
   open  INDEX, '>', $index_page or die "Can't open file: $index_page";
   print INDEX index_header();
