@@ -17,7 +17,7 @@ my $dbh = DBI->connect($dsn, $user, $pass);
 
 my $default_player_image = 'http://tv.macrophile.com/resources/default-images/focus.jpg';
 
-### Check password 
+### Check password
 
 my $check = 0;
 my $username = $cgi->param('username');
@@ -47,7 +47,7 @@ print '<body bgcolor="#FFFFFF">
 
 ### DASHBOARD	
 if ( $cgi->path_info eq '/dashboard' ) {
-  print "Welcome $username";  
+  print "Welcome $username";
 
   print $cgi->start_form(-action=>'/index.cgi/sms'),
         $cgi->hidden('username',$username),
@@ -94,7 +94,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
   }
 
   my $tmpl = get_page($username,'index');
-  
+
   print $cgi->start_form( -action=> '/index.cgi/edit' ),
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
@@ -107,7 +107,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
 ### LOGIN
 } elsif ( $cgi->path_info eq '/login' ) {
   print $cgi->p("Bad login.") if $username or $password;
-  print $cgi->start_form( -action=> '/index.cgi/dashboard' ), 
+  print $cgi->start_form( -action=> '/index.cgi/dashboard' ),
           $cgi->b('User: '), $cgi->textfield('username'), $cgi->br,
           $cgi->b('Pass: '), $cgi->password_field('password'), $cgi->br,
           $cgi->submit, $cgi->end_form;
@@ -124,8 +124,8 @@ if ( $cgi->path_info eq '/dashboard' ) {
     $error .= $cgi->p('Your "old password" did not match.') unless $cgi->param('old_password') eq $password;
     $error .= $cgi->p('Your new passwords did not match.') unless length($cgi->param('new_password')) and $cgi->param('new_password') eq $cgi->param('check_password');
 
-    if ( $error ) {    
-      print 
+    if ( $error ) {
+      print
           $cgi->p("ERROR:",$error),
           $cgi->p('Old Password',$cgi->param('old_password')),
           $cgi->p('New Password',$cgi->param('new_password')),
@@ -139,7 +139,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
             $cgi->submit('Back');
     }
   } else {
-    print 
+    print
         $cgi->p('Old Password',$cgi->password_field('old_password')),
         $cgi->p('New Password',$cgi->password_field('new_password')),
         $cgi->p('Confirm New Password',$cgi->password_field('check_password')),
@@ -165,7 +165,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
   );
 
   my @order = qw/title chat_title chat_channel chat_height chat_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
-  
+
   my $made_changes = 0;
   for my $param_name (@order) {
     my $submitted_value = $cgi->param($param_name);
@@ -176,17 +176,17 @@ if ( $cgi->path_info eq '/dashboard' ) {
     print $cgi->p("Setting '$param_name' to '$submitted_value' returned $ret");
     $made_changes++;
   }
-  
+
   write_pages() if $made_changes;
-  
-  print $cgi->start_form(-action=>'/index.cgi/params'), 
+
+  print $cgi->start_form(-action=>'/index.cgi/params'),
         $cgi->hidden('username',$username),
         $cgi->hidden('password',$password),
         $cgi->start_table;
-  
+
   for my $param ( @order ) {
     my $value = get_param($param);
-    
+
     print $cgi->Tr(
             $cgi->td($cgi->b($param)),
             $cgi->td($cgi->textfield(-size=>60,-maxlength=>255,-name=>$param,-value=>$value)),
@@ -205,18 +205,18 @@ if ( $cgi->path_info eq '/dashboard' ) {
     my $message = $cgi->param('message');
     print $cgi->blockquote($message),
           $cgi->p("Sending messages...");
-          
+
     my %db = get_sms_list();
     for my $number ( keys %db ) {
       my $ret = send_message($number,$cgi->param('message'));
       print $cgi->p($number,'...',$ret->{message},'('.$ret->{code}.')');
     }
-        
+
   } else {
     print $cgi->h3("Send an SMS message:");
     my $site  = get_site($username);
     my $title = get_param('title');
-    
+
     print $cgi->start_form(-action=>'/index.cgi/sms'),
           $cgi->hidden('username',$username),
           $cgi->hidden('password',$password),
@@ -226,12 +226,12 @@ if ( $cgi->path_info eq '/dashboard' ) {
           ),
           $cgi->br,
           $cgi->submit,
-          $cgi->end_form; 
+          $cgi->end_form;
       my %db = get_sms_list();
-      print $cgi->p('The current list:');        
+      print $cgi->p('The current list:');
       for my $number ( keys %db ) {
   	    print $number, "\t", $db{$number}, $cgi->br, "\n";
-      }        
+      }
   }
 
 ### UPLOADS
@@ -246,7 +246,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
     print $cgi->p("Deleting $file_to_delete");
     unlink($file_to_delete);
   }
-    
+
   # Handle uploads
   if ( $cgi->param('uploaded_file') ) {
     my $filename = $cgi->param('uploaded_file');
@@ -272,7 +272,7 @@ if ( $cgi->path_info eq '/dashboard' ) {
             $cgi->td($cgi->start_form(-action=>'/index.cgi/uploads'),$cgi->hidden('username',$username),$cgi->hidden('password',$password),$cgi->hidden('delete_file',$file),$cgi->submit('Delete'),$cgi->end_form)
           );
   }
-  print $cgi->Tr($cgi->td("(no files uploaded)")) unless scalar(@files);  
+  print $cgi->Tr($cgi->td("(no files uploaded)")) unless scalar(@files);
   print $cgi->end_table;
 
   print $cgi->br;
@@ -305,12 +305,12 @@ print '
 	
 	</div>
    <div id="ft" role="contentinfo">';
-   
+
 print $cgi->p('Path:',$cgi->path_info);
 for my $param ( $cgi->param ) {
   #print $cgi->p($param,$cgi->param($param));
-}   
-   
+}
+
 print '</div>
 </div>
 
@@ -424,9 +424,9 @@ sub send_message {
                       AuthToken  => $LocalAuth::TWILIO_AUTH
                     ) unless defined $twilio;
 
-  return $twilio->POST( 'SMS/Messages', 
+  return $twilio->POST( 'SMS/Messages',
     From => $LocalAuth::TWILIO_PHONE,
-    To => $number, 
+    To => $number,
     Body => $message
   );
 }
@@ -439,7 +439,7 @@ sub set_param {
   my $sth = $dbh->prepare('select count(*) from params where username=? and param=?');
   my $ret = $sth->execute($user,$param);
   my $count = $sth->fetchrow_arrayref->[0];
-  
+
   if ( $count > 0 ) {
     $sth = $dbh->prepare('update params set value=? where username=? and param=?');
     return $sth->execute($value,$user,$param);
@@ -451,25 +451,34 @@ sub set_param {
 
 sub write_pages {
   my $path = get_directory($username);
- 
+
   my $index_page     = $path .'/index.php';
+  my $chat_page      = $path .'/chat.php';
   my $subscribe_page = $path .'/subscribe.cgi';
-  
+
   print $cgi->p("Writing $index_page");
 
   my $tmpl = get_page($username,'index');
-    
-  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );    
+
+  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );
   $template->param('screen' => screen() );
-  $template->param('chat' => '<?php $chat->printChat(); ?>' );
+  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'/chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
 
   open  INDEX, '>', $index_page or die "Can't open file: $index_page";
-  print INDEX index_header();    
+  print INDEX index_header();
   print INDEX $template->output;
   close INDEX;
 
-  print $cgi->p("Writing $subscribe_page");
+  print $cgi->p("Writing $chat_page");
 
+  unlink($chat_page) if -f $chat_page;
+
+  open  CHAT, '>', $chat_page or die "Can't open file: $chat_page";
+  print CHAT index_header();
+  print CHAT '<html><body><?php $chat->printChat(); ?></body></html>';
+  close CHAT;
+
+  print $cgi->p("Writing $subscribe_page");
   unlink($subscribe_page) if -f $subscribe_page;
 
   $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/subscribe.cgi', die_on_bad_params => 0 );
@@ -480,15 +489,15 @@ sub write_pages {
   open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
   print SUBSCRIBE $template->output;
   close SUBSCRIBE;
-        
+
   `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
-  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`; 
+  `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`;
 
   `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
   `cp -r /var/www/html/web-tv-core/resources/chat $path`;
 
   `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
-  
+
   `chmod 0755 $index_page $subscribe_page`;
 }
 
@@ -508,7 +517,8 @@ require_once dirname(__FILE__)."/chat/src/phpfreechat.class.php";
 
 $params = array();
 
-$params["serverid"] = md5(__FILE__); // calculate a unique id for this chat
+#$params["serverid"] = md5(__FILE__); // calculate a unique id for this chat
+$params["serverid"] = "53d2a6a5a253c626d21ca125ab6e81fd";
 
 $params["title"] = "'.$chat_title.'"; // Chat title
 $params["channels"] = array("'.$chat_channel.'"); // Default channel to join
@@ -548,7 +558,7 @@ sub screen {
   my $player_url    = get_param('player_url');
   my $rtmp_url      = get_param('rtmp_url');
 
-  # Return the screen layout  
+  # Return the screen layout
   return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
 <div id="'.$playerid.'">
   <h1>You need the Adobe Flash Player for this demo, download it by clicking the image below.</h1>
@@ -569,5 +579,55 @@ sub screen {
   	t=setTimeout("jwplayer().play()",10000);
   });
 
-</script>';
+</script>
+
+[ <a href="#" onClick="
+  document.getElementById(\''.$playerid.'\').innerHTML = \'&nbsp;\';
+  jwplayer(\''.$playerid.'\').setup({
+    file: \''.$rtmp_url.'\',
+    width: \''.$player_width.'\',
+    height: \''.$player_height.'\',
+    primary: \'flash\',
+    image: \''.$player_url.'\',
+    autostart: \'true\',
+  });
+
+  var timer=10000;
+  jwplayer().onIdle(function() {
+  	t=setTimeout(\'jwplayer().play()\',10000);
+  });">'.$player_width.'x'.$player_height.'</a> |
+
+<a href="#" onClick="
+  document.getElementById(\''.$playerid.'\').innerHTML = \'&nbsp;\';
+  jwplayer(\''.$playerid.'\').setup({
+    file: \''.$rtmp_url.'\',
+    width: \'800\',
+    height: \'600\',
+    primary: \'flash\',
+    image: \''.$player_url.'\',
+    autostart: \'true\',
+  });
+
+  var timer=10000;
+  jwplayer().onIdle(function() {
+  	t=setTimeout(\'jwplayer().play()\',10000);
+  });">800x600</a> |
+
+<a href="#" onClick="
+  document.getElementById(\''.$playerid.'\').innerHTML = \'&nbsp;\';
+  jwplayer(\''.$playerid.'\').setup({
+    file: \''.$rtmp_url.'\',
+    width: \'1024\',
+    height: \'768\',
+    primary: \'flash\',
+    image: \''.$player_url.'\',
+    autostart: \'true\',
+  });
+
+  var timer=10000;
+  jwplayer().onIdle(function() {
+  	t=setTimeout(\'jwplayer().play()\',10000);
+  });">1024x768</a> ]
+
+';
 }
