@@ -165,10 +165,15 @@ if ( $cgi->path_info eq '/dashboard' ) {
     player_height   => 'The height of the player window in pixels.',
     player_width    => 'The width of the player window in pixels.',
     player_url      => 'The URL of the default background image for the player.',
+    priv_user       => 'User for the private site.',
+    priv_pass       => 'Password for the private site.',
     rtmp_url        => 'The RTMP URL the player is configured to read from.'
   );
 
-  my @order = qw/title chat_title chat_channel chat_height chat_admin_user chat_admin_pass player_width player_height player_url rtmp_url/;
+  my @order = qw/title chat_title chat_channel chat_height 
+                 chat_admin_user chat_admin_pass 
+                 priv_user priv_pass 
+                 player_width player_height player_url rtmp_url/;
 
   my $made_changes = 0;
   for my $param_name (@order) {
@@ -460,6 +465,10 @@ sub write_pages {
   my $chat_page      = $path .'/chat.php';
   my $subscribe_page = $path .'/subscribe.cgi';
 
+  my $priv_page      = $path .'/priv/index.php';
+  my $priv_hta       = $path .'/priv/.htaccess';
+  my $priv_htp       = $path .'/priv/htpasswd';
+
   print $cgi->p("Writing $index_page");
 
   my $tmpl = get_page($username,'index');
@@ -497,6 +506,28 @@ sub write_pages {
   open  SUBSCRIBE, '>', $subscribe_page or die "Can't open file: $subscribe_page";
   print SUBSCRIBE $template->output;
   close SUBSCRIBE;
+
+  `if [ ! -d $path/priv ]; then mkdir $path/priv; fi`;
+
+  print $cgi->p("Writing $priv_hta");
+
+  unlink($priv_hta) if -f $priv_hta;
+
+  $template = HTML::Template->new( filename => '/var/www/html/web-tv-core/templates/htaccess', die_on_bad_params => 0 );
+  $template->param('title' => ucfirst($username) .'\'s Private Stream Site' );
+  $template->param('htpasswd' => $priv_htp );
+
+  open  PRIV_HTA, '>', $priv_hta or die "Can't open file: $priv_hta";
+  print PRIV_HTA $template->output;
+  close PRIV_HTA;
+
+  print $cgi->p("Writing $priv_htp");
+
+  unlink($priv_htp) if -f $priv_htp;
+
+  my $user = get_param('priv_user');
+  my $pass = get_param('priv_pass');
+  `htpasswd -bc $priv_htp $user $pass`;
 
   `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
   `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`;

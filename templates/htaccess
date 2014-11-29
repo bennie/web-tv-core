@@ -1,0 +1,4 @@
+AuthUserFile <tmpl_var name="htpasswd">
+AuthName "<tmpl_var name="title">"
+AuthType Basic
+require valid-user
