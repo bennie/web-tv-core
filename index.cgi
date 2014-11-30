@@ -469,6 +469,8 @@ sub write_pages {
   my $priv_hta       = $path .'/priv/.htaccess';
   my $priv_htp       = $path .'/priv/htpasswd';
 
+  # index.php
+
   print $cgi->p("Writing $index_page");
 
   my $tmpl = get_page($username,'index');
@@ -486,6 +488,8 @@ sub write_pages {
   print INDEX $template->output;
   close INDEX;
 
+  # chat page
+
   print $cgi->p("Writing $chat_page");
 
   unlink($chat_page) if -f $chat_page;
@@ -494,6 +498,8 @@ sub write_pages {
   print CHAT index_header();
   print CHAT '<html><body><?php $chat->printChat(); ?></body></html>';
   close CHAT;
+
+  # Subscribe page
 
   print $cgi->p("Writing $subscribe_page");
   unlink($subscribe_page) if -f $subscribe_page;
@@ -507,7 +513,11 @@ sub write_pages {
   print SUBSCRIBE $template->output;
   close SUBSCRIBE;
 
+  # private dir
+
   `if [ ! -d $path/priv ]; then mkdir $path/priv; fi`;
+
+  # htaccess
 
   print $cgi->p("Writing $priv_hta");
 
@@ -521,6 +531,8 @@ sub write_pages {
   print PRIV_HTA $template->output;
   close PRIV_HTA;
 
+  # htpasswd
+
   print $cgi->p("Writing $priv_htp");
 
   unlink($priv_htp) if -f $priv_htp;
@@ -529,11 +541,35 @@ sub write_pages {
   my $pass = get_param('priv_pass');
   `htpasswd -bc $priv_htp $user $pass`;
 
+  # private index
+
+  print $cgi->p("Writing $priv_page");
+
+  my $tmpl = get_page($username,'index');
+
+  my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );
+  $template->param('screen' => screen(1) );
+  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'/chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
+
+  $template->param('title' => get_param('title') );
+  $template->param('uc_username' => ucfirst($username) );
+  $template->param('username' => $username );
+
+  open  INDEX, '>', $priv_page or die "Can't open file: $priv_page";
+  print INDEX index_header();
+  print INDEX $template->output;
+  close INDEX;
+
+  # core library stuff
+
   `if [ -d $path/jwplayer ]; then rm -rf $path/jwplayer; fi`;
   `cp -r /var/www/html/web-tv-core/resources/jwplayer $path`;
 
   `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
   `cp -r /var/www/html/web-tv-core/resources/chat $path`;
+
+  `if [ -d $path/priv/chat ]; then rm -rf $path/priv/chat; fi`;
+  `cp -r /var/www/html/web-tv-core/resources/chat $path/priv/`;
 
   `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
 
@@ -590,12 +626,19 @@ $chat = new phpFreeChat($params);
 }
 
 sub screen {
+  my $private = shift @_;
+
   my $playerid = 'player_'.$username;
 
   my $player_height = get_param('player_height');
   my $player_width  = get_param('player_width');
   my $player_url    = get_param('player_url');
   my $rtmp_url      = get_param('rtmp_url');
+
+  if ( $private ) {
+    $playerid .= '_priv';
+    $rtmp_url .= '_priv';
+  }
 
   # Return the screen layout
   return '<script type=\'text/javascript\' src=\'/jwplayer/jwplayer.js\'></script>
