@@ -465,9 +465,10 @@ sub write_pages {
   my $chat_page      = $path .'/chat.php';
   my $subscribe_page = $path .'/subscribe.cgi';
 
-  my $priv_page      = $path .'/priv/index.php';
   my $priv_hta       = $path .'/priv/.htaccess';
   my $priv_htp       = $path .'/priv/htpasswd';
+  my $priv_page      = $path .'/priv/index.php';
+  my $priv_chat      = $path .'/priv/chat.php';
 
   # index.php
 
@@ -477,7 +478,7 @@ sub write_pages {
 
   my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );
   $template->param('screen' => screen() );
-  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'/chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
+  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
 
   $template->param('title' => get_param('title') );
   $template->param('uc_username' => ucfirst($username) );
@@ -549,16 +550,27 @@ sub write_pages {
 
   my $template = HTML::Template->new( scalarref => \$tmpl, die_on_bad_params => 0 );
   $template->param('screen' => screen(1) );
-  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'/chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
+  $template->param('chat' => '<?php $chat->printChat(); ?> [ <a href="#" onClick="window.open(\'chat.php\', \'_blank\', \'height=600,width=450,toolbar=no,scrollbars=no,menubar=no\');document.getElementById(\'pfc_container\').innerHTML = \'&nbsp;\';">Pop Out Chat Window</a> ]' );
 
   $template->param('title' => get_param('title') );
   $template->param('uc_username' => ucfirst($username) );
   $template->param('username' => $username );
 
   open  INDEX, '>', $priv_page or die "Can't open file: $priv_page";
-  print INDEX index_header();
+  print INDEX index_header(1);
   print INDEX $template->output;
   close INDEX;
+
+  # private chat page
+
+  print $cgi->p("Writing $priv_chat");
+
+  unlink($priv_chat) if -f $priv_chat;
+
+  open  CHAT, '>', $priv_chat or die "Can't open file: $priv_chat";
+  print CHAT index_header(1);
+  print CHAT '<html><body><?php $chat->printChat(); ?></body></html>';
+  close CHAT;
 
   # core library stuff
 
@@ -568,9 +580,6 @@ sub write_pages {
   `if [ -d $path/chat ]; then rm -rf $path/chat; fi`;
   `cp -r /var/www/html/web-tv-core/resources/chat $path`;
 
-  `if [ -d $path/priv/chat ]; then rm -rf $path/priv/chat; fi`;
-  `cp -r /var/www/html/web-tv-core/resources/chat $path/priv/`;
-
   `if [ ! -d $path/uploads ]; then mkdir $path/uploads; fi`;
 
   `chmod 0755 $index_page $subscribe_page`;
@@ -579,6 +588,8 @@ sub write_pages {
 ### Big page blocks
 
 sub index_header {
+  my $private = shift @_;
+
   my $title           = get_param('title');
   my $chat_title      = get_param('chat_title');
   my $chat_channel    = get_param('chat_channel');
@@ -586,14 +597,19 @@ sub index_header {
   my $chat_admin_user = get_param('chat_admin_user');
   my $chat_admin_pass = get_param('chat_admin_pass');
 
+  my $chatid = 'chat_'.$username;
+
+  if ( $private ) {
+    $chatid .= '_priv';
+  }
+
   return '<?php
 
-require_once dirname(__FILE__)."/chat/src/phpfreechat.class.php";
+require_once dirname(__FILE__)."'.($private?'/..':'').'/chat/src/phpfreechat.class.php";
 
 $params = array();
 
-#$params["serverid"] = md5(__FILE__); // calculate a unique id for this chat
-$params["serverid"] = "53d2a6a5a253c626d21ca125ab6e81fd";
+$params["serverid"] = md5("'.$chatid.'"); // calculate a unique id for this chat
 
 $params["title"] = "'.$chat_title.'"; // Chat title
 $params["channels"] = array("'.$chat_channel.'"); // Default channel to join
