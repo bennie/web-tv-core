@@ -47,7 +47,8 @@ print '<body bgcolor="#FFFFFF">
 
 ### DASHBOARD	
 if ( $cgi->path_info eq '/dashboard' ) {
-  print "Welcome $username";
+  my $site  = get_site($username);
+  print $cgi->p("Welcome $username @ $site"), $cgi->br;
 
   print $cgi->start_form(-action=>'/index.cgi/sms'),
         $cgi->hidden('username',$username),
