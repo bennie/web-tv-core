@@ -381,6 +381,8 @@ sub get_param {
     $value = 360                      if $param eq 'player_height';
     $value = 640                      if $param eq 'player_width';
     $value = $default_player_image    if $param eq 'player_url';
+    $value = 'secret'                 if $param eq 'priv_user';
+    $value = 'SSH!'                   if $param eq 'priv_pass';
     $value = 'rtmp://tv.macrophile.com/oflaDemo/'.$username.'tv' if $param eq 'rtmp_url';
     set_param($username,$param,$value) if $value;
   }
